@@ -30,17 +30,20 @@ That's it. The `__init__.py` files are generated and kept in sync automatically.
 ## Install
 
 ```bash
-# Install directly from GitHub
+# pip
 pip install git+https://github.com/kaanegeevran/autoexport.git
 
-# With file watcher support (uses OS-native events instead of polling)
+# uv
+uv add git+https://github.com/kaanegeevran/autoexport.git
+
+# With extras (file watcher, black formatting, or everything)
 pip install "autoexport[watch] @ git+https://github.com/kaanegeevran/autoexport.git"
-
-# With black formatting support
 pip install "autoexport[black] @ git+https://github.com/kaanegeevran/autoexport.git"
-
-# Everything
 pip install "autoexport[all] @ git+https://github.com/kaanegeevran/autoexport.git"
+
+uv add "autoexport[watch] @ git+https://github.com/kaanegeevran/autoexport.git"
+uv add "autoexport[black] @ git+https://github.com/kaanegeevran/autoexport.git"
+uv add "autoexport[all] @ git+https://github.com/kaanegeevran/autoexport.git"
 ```
 
 ## Quick Start
