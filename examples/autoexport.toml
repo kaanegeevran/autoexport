@@ -1,6 +1,10 @@
 [autoexport]
 watch = ["app"]
 mode = "all"
+import_style = "relative"
 export_constants = true
 export_variables = false
+flatten = false
+lazy = false
+use_black = false
 recursive = true

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "autoexport"
-version = "0.1.0"
+version = "0.2.0"
 description = "Auto-generate __init__.py files on save. Full IDE support, zero boilerplate."
 readme = "README.md"
 license = {text = "MIT"}
@@ -26,6 +26,8 @@ classifiers = [
 
 [project.optional-dependencies]
 watch = ["watchdog>=3.0"]
+black = ["black>=23.0"]
+all = ["watchdog>=3.0", "black>=23.0"]
 
 [project.scripts]
 autoexport = "autoexport.cli:main"

@@ -5,6 +5,7 @@ Usage:
     autoexport init                    # Create autoexport.toml with defaults
     autoexport generate                # One-shot generation
     autoexport generate --dry-run      # Preview what would be generated
+    autoexport generate --diff         # Show diff of what would change
     autoexport watch                   # Watch and regenerate on save
     autoexport clean                   # Remove all auto-generated __init__.py files
 """
@@ -15,7 +16,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from .config import Config, ExportMode, load_config
+from .config import Config, ExportMode, ImportStyle, load_config
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -42,6 +43,10 @@ def main(argv: list[str] | None = None) -> int:
     gen_parser.add_argument(
         "--dry-run", action="store_true",
         help="Show what would be generated without writing files",
+    )
+    gen_parser.add_argument(
+        "--diff", action="store_true",
+        help="Show a unified diff of what would change",
     )
     gen_parser.add_argument(
         "--verbose", "-v", action="store_true",
@@ -107,11 +112,26 @@ exclude_files = ["conftest.py", "setup.py"]
 #   "decorated" — only export items marked with @export
 mode = "all"
 
+# Import style:
+#   "relative" — from .module import Name (default)
+#   "absolute" — from package.module import Name
+import_style = "relative"
+
 # Whether to export UPPER_CASE constants
 export_constants = true
 
 # Whether to export non-constant variables
 export_variables = false
+
+# Bubble up child package exports to parent __init__.py
+# e.g. makes `from app import User` work when User is in app/models/user.py
+flatten = false
+
+# Use PEP 562 lazy imports (__getattr__) for faster startup
+lazy = false
+
+# Format generated files with black (requires black to be installed)
+use_black = false
 
 # Recurse into subdirectories
 recursive = true
@@ -130,9 +150,20 @@ respect_existing_all = true
 
 def cmd_generate(config: Config, args) -> int:
     """One-shot generation."""
-    from .generator import generate_all, write_results
+    from .generator import generate_all, write_results, diff_results
 
     results = generate_all(config)
+
+    # Diff mode
+    if args.diff:
+        diffs = diff_results(results)
+        if not diffs:
+            print("  No changes.")
+            return 0
+        for path, diff_text in diffs:
+            print(diff_text)
+        return 0
+
     written = write_results(results, dry_run=args.dry_run)
 
     if args.dry_run:

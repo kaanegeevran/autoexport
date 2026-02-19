@@ -7,7 +7,7 @@ Stop writing and maintaining `__init__.py` files by hand. `autoexport` watches y
 ## Before
 
 ```python
-# app/models/__init__.py — you maintain this manually 😩
+# app/models/__init__.py — you maintain this manually
 from .user import User
 from .post import Post
 from .comment import Comment
@@ -23,17 +23,26 @@ Every time you add a class, rename one, or delete a file — you have to update 
 autoexport watch
 ```
 
-That's it. The `__init__.py` files are generated and kept in sync automatically. Your IDE sees everything.
+That's it. The `__init__.py` files are generated and kept in sync automatically.
 
 ---
 
 ## Install
 
 ```bash
-pip install autoexport
+# Clone the repo and install locally
+git clone https://github.com/yourusername/autoexport.git
+cd autoexport
+pip install -e .
 
-# Optional: better file watching performance
-pip install autoexport[watch]
+# Optional: better file watching (uses OS-native events instead of polling)
+pip install -e ".[watch]"
+
+# Optional: auto-format generated files with black
+pip install -e ".[black]"
+
+# Everything:
+pip install -e ".[all]"
 ```
 
 ## Quick Start
@@ -64,9 +73,24 @@ watch = ["src/app", "src/lib"]
 #   "decorated" — only items marked with @export
 mode = "all"
 
+# Import style:
+#   "relative" — from .module import Name (default)
+#   "absolute" — from package.module import Name
+import_style = "relative"
+
 # Fine-grained control
 export_constants = true      # Include UPPER_CASE assignments
 export_variables = false     # Include lowercase assignments
+
+# Bubble up child package exports to parent __init__.py
+# Makes `from app import User` work when User is in app/models/user.py
+flatten = false
+
+# Use PEP 562 lazy imports for faster startup (large packages)
+lazy = false
+
+# Format generated files with black (requires: pip install black)
+use_black = false
 
 # Directories and files to skip
 exclude_dirs = ["__pycache__", ".git", ".venv", "tests"]
@@ -79,6 +103,114 @@ recursive = true
 respect_existing_all = true
 ```
 
+## Features
+
+### Flatten / Bubble-up exports
+
+With `flatten = true`, child package exports are re-exported at the parent level:
+
+```python
+# Without flatten:
+from app.models import User       # must know the subpackage
+
+# With flatten:
+from app import User              # works — bubbled up from app/models/user.py
+from app.models import User       # also still works
+```
+
+Generated `app/__init__.py`:
+```python
+from . import models
+from . import services
+from .models.user import User
+from .models.post import Post
+from .services.auth import AuthService
+```
+
+### Lazy imports (PEP 562)
+
+With `lazy = true`, imports are deferred until first access. This dramatically reduces import time for large packages:
+
+```python
+# Generated __init__.py uses __getattr__ instead of direct imports:
+def __getattr__(name):
+    if name in _LAZY_IMPORTS:
+        module_path, attr = _LAZY_IMPORTS[name]
+        mod = importlib.import_module(module_path, __name__)
+        val = getattr(mod, attr)
+        globals()[name] = val  # cached after first access
+        return val
+    raise AttributeError(...)
+```
+
+Usage is identical — `from app.models import User` still works, it's just loaded on first use.
+
+### Absolute imports
+
+With `import_style = "absolute"`, generates fully qualified imports:
+
+```python
+# relative (default):
+from .user import User
+
+# absolute:
+from mypackage.models.user import User
+```
+
+### Export modes
+
+**`mode = "all"` (default)** — exports everything public:
+
+```python
+class User: ...        # ✓ exported
+def helper(): ...      # ✓ exported
+MAX_RETRIES = 3        # ✓ exported (constant)
+_internal = "x"        # ✗ private, skipped
+```
+
+**`mode = "public"`** — classes and functions only:
+
+```python
+class User: ...        # ✓ exported
+def helper(): ...      # ✓ exported
+MAX_RETRIES = 3        # ✗ skipped
+```
+
+**`mode = "decorated"`** — only `@export`-marked items:
+
+```python
+from autoexport import export
+
+@export
+class User: ...        # ✓ exported
+class Internal: ...    # ✗ skipped
+```
+
+### Diff mode
+
+Preview what would change before writing:
+
+```bash
+autoexport generate --diff
+```
+
+Shows a unified diff of every `__init__.py` that would be modified.
+
+### Black formatting
+
+With `use_black = true` (and `black` installed), generated files are auto-formatted.
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `autoexport init` | Create `autoexport.toml` with defaults |
+| `autoexport generate` | One-shot generation |
+| `autoexport generate --dry-run` | Preview without writing |
+| `autoexport generate --diff` | Show unified diff of changes |
+| `autoexport watch` | Watch and regenerate on save |
+| `autoexport clean` | Remove all auto-generated `__init__.py` files |
+
 ## How It Works
 
 1. Scans your `.py` files using Python's `ast` module (no code execution)
@@ -88,107 +220,12 @@ respect_existing_all = true
 5. Only overwrites files it previously generated (marked with `# [autoexport]`)
 6. Never touches hand-written `__init__.py` files
 
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `autoexport init` | Create `autoexport.toml` with defaults |
-| `autoexport generate` | One-shot generation |
-| `autoexport generate --dry-run` | Preview without writing |
-| `autoexport watch` | Watch and regenerate on save |
-| `autoexport clean` | Remove all auto-generated `__init__.py` files |
-
-## Export Modes
-
-### `mode = "all"` (default)
-
-Exports everything public:
-
-```python
-# models/user.py
-class User: ...        # ✓ exported
-def helper(): ...      # ✓ exported
-MAX_RETRIES = 3        # ✓ exported (constant)
-_internal = "x"        # ✗ private, skipped
-```
-
-### `mode = "public"`
-
-Classes and functions only:
-
-```python
-class User: ...        # ✓ exported
-def helper(): ...      # ✓ exported
-MAX_RETRIES = 3        # ✗ skipped
-```
-
-### `mode = "decorated"`
-
-Only items with `@export`:
-
-```python
-from autoexport import export
-
-@export
-class User: ...        # ✓ exported
-
-class Internal: ...    # ✗ skipped
-
-@export
-def helper(): ...      # ✓ exported
-```
-
-## Respecting `__all__`
-
-If a file defines `__all__`, autoexport uses that instead of auto-detecting:
-
-```python
-# models/user.py
-__all__ = ["User"]
-
-class User: ...    # ✓ exported (in __all__)
-class Admin: ...   # ✗ skipped (not in __all__)
-```
-
-Disable with `respect_existing_all = false`.
-
 ## Safety
 
 - **Never overwrites hand-written `__init__.py` files.** Only files containing the `# [autoexport]` marker are managed.
 - **AST-only parsing.** Your code is never executed during generation.
 - **Syntax errors are skipped.** A broken file won't break generation for the rest of the directory.
-
-## Generated Output
-
-For a directory like:
-
-```
-app/models/
-    user.py      → class User, class Admin
-    post.py      → class Post
-    constants.py → MAX_RETRIES = 3, API_VERSION = "v1"
-```
-
-Autoexport generates:
-
-```python
-# Auto-generated by autoexport — do not edit manually
-# [autoexport]
-
-from .constants import API_VERSION
-from .constants import MAX_RETRIES
-from .post import Post
-from .user import Admin
-from .user import User
-
-__all__ = [
-    "API_VERSION",
-    "MAX_RETRIES",
-    "Post",
-    "Admin",
-    "User",
-]
-```
+- **`autoexport clean`** removes only auto-generated files.
 
 ## IDE Integration
 
@@ -214,3 +251,7 @@ Use a File Watcher (Settings → Tools → File Watchers) with:
 - Program: `autoexport`
 - Arguments: `generate`
 - Working directory: `$ProjectFileDir$`
+
+## License
+
+MIT
