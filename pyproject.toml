@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autoexport"
+version = "0.1.0"
+description = "Auto-generate __init__.py files on save. Full IDE support, zero boilerplate."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+keywords = ["import", "export", "init", "boilerplate", "codegen"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Code Generators",
+]
+
+[project.optional-dependencies]
+watch = ["watchdog>=3.0"]
+
+[project.scripts]
+autoexport = "autoexport.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/yourusername/autoexport"
+
+[tool.setuptools.packages.find]
+include = ["autoexport*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

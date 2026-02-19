@@ -1,0 +1,6 @@
+[autoexport]
+watch = ["app"]
+mode = "all"
+export_constants = true
+export_variables = false
+recursive = true
